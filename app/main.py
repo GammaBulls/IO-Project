@@ -1,16 +1,6 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
-db = SQLAlchemy(app)
-
-class Category(db.Model):
-    id = db.Column(db.Integer, primary_key = True)
-    category_name = db.Column(db.String(80), unique = True, nullable = False)
-
-    def __repr__(self):
-        return self.category_name
-
 
 @app.route('/')
 def index():
