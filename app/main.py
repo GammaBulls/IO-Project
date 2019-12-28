@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
+import flask_login
 import os
 import enum
 
@@ -40,6 +41,15 @@ class Report(db.Model):
     report_reason = db.Column(db.Integer, db.Enum(ReportReason), nullable=False)
     advertisement = db.Column(db.Integer, db.ForeignKey('advertisement.id'), nullable=False)
     reporter = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+
+class ReportSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'report_reason', 'advertisement', 'reporter')
+
+
+report_schema = ReportSchema()
+reports_schema = ReportSchema(many=True)
 
 
 class EndReason(enum.Enum):
@@ -157,6 +167,49 @@ def index():
     return 'Wale wiadro'
 
 
+@app.route('/api/ad/<id>/report', methods=['POST'])
+def create_report(id):
+    report_reason = request.json['reason']
+    new_report = Report(report_reason, id, flask_login.current_user.get_id())
+
+    db.session.add(new_report)
+    db.session.commit()
+
+    return report_schema.jsonify(new_report)
+
+@app.route('/api/report/<id>', methods=['GET'])
+def get_report(id):
+    report = Report.query.get(id)
+    return report_schema.jsonify(report)
+
+@app.route('/api/report/<id>', methods=['DELETE'])
+def delete_report(id):
+    report = Report.query.get(id)
+    db.session.delete(report)
+    db.session.commit()
+    return report_schema.jsonify(report)
+
+@app.route('/api/mod/reports', methods=['GET'])
+def get_reports():
+    all_reports = Report.query.all()
+    result = reports_schema.dump(all_reports)
+    return jsonify(result)
+
+
+@app.route('/api/mod/reports/<id>', methods=['POST'])
+def review_report(id):
+    is_ok = request.json["isOk"]
+    ban_user = request.json["banUser"]
+    
+    if is_ok:
+        delete_report(id)
+
+    if ban_user:
+        report = get_report(id)
+        advertisment = get_advetisement(report.advertisement)
+        user = advertisment.owner
+        delete_user(user)
+
 @app.route('/api/category', methods=['POST'])
 def create_category():
     name = request.json['category_name']
@@ -200,4 +253,5 @@ def delete_category(id):
 
 
 if __name__ == '__main__':
+    db.create_all()
     app.run(port=8000, debug=True, host='0.0.0.0')
