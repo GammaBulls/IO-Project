@@ -1,1 +1,5 @@
 /.vscode
+/.idea
+/app/db.sqlite
+/app/__pycache__
+.DS_Store
