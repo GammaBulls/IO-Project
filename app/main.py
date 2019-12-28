@@ -66,16 +66,69 @@ class User(db.Model):
     name = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(80), unique=True, nullable=False)
     phone_number = db.Column(db.Integer, unique=True, nullable=False)
-    show_phone = db.Column(db.Boolean(), nullable=False)
+    show_phone = db.Column(db.Boolean, nullable=False)
     password_hash = db.Column(db.String(128))
     is_activated = db.Column(db.Boolean(), default=False)
     is_admin = db.Column(db.Boolean(), default=False)
     is_moderator = db.Column(db.Boolean(), default=False)
     delete_date = db.Column(db.DateTime())
 
+    def __init__(self, name, email, phone, show):
+        self.name = name
+        self.email = email
+        self.phone_number = phone
+        self.show_phone = show
+
+
+class UserSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'name', 'phone_number')
+
+
+user_schema = UserSchema()
+users_schema = UserSchema(many=True)
+
+
+class UserDetailsSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'name', 'phone_number', 'delete_date', 'email', 'is_admin', 'is_moderator', 'show_phone')
+
+
+user_details_schema = UserDetailsSchema()
+users_details_schema = UserDetailsSchema(many=True)
+
+
+@app.route('/api/user', methods=['POST'])
+def create_user():
+    name = request.json['name']
+    email = request.json['email']
+    phone = request.json['phone']
+    show_phone = request.json['show_phone']
+    new_user = User(name, email, phone, show_phone)
+
+    db.session.add(new_user)
+    db.session.commit()
+
+    return user_details_schema.jsonify(new_user)
+
+
+@app.route('/api/user', methods=['GET'])
+def get_users():
+    all_users = User.query.all()
+    result = users_details_schema.dump(all_users)
+    return jsonify(result)
+
+
+@app.route('/api/user/<id>', methods=['GET'])
+def get_user(id):
+    user = User.query.get(id)
+
+    return user_details_schema.jsonify(user)
+
 
 class Favorite(db.Model):
-    ad = db.Column(db.Integer, db.ForeignKey('Advertisement.id'), nullable=False)
+    id = db.Column(db.Integer, primary_key=True)
+    ad = db.Column(db.Integer, db.ForeignKey('advertisement.id'), nullable=False)
     user = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
 
@@ -90,7 +143,7 @@ class Message(db.Model):
     message_text = db.Column(db.String(500), nullable=False)
     message_date = db.Column(db.DateTime, nullable=False)
     direction = db.Column(db.Boolean(), nullable=False)
-    conversation = db.Column(db.Integer, db.ForeignKey('Conversation.id'), nullable=False)
+    conversation = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
 
 
 class AppSettings(db.Model):
