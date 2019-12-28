@@ -37,7 +37,7 @@ class ReportReason(enum.Enum):
 
 class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    report_reason = db.Column(db.Integer, db.Enum(Report_Reason), nullable=False)
+    report_reason = db.Column(db.Integer, db.Enum(ReportReason), nullable=False)
     advertisement = db.Column(db.Integer, db.ForeignKey('advertisement.id'), nullable=False)
     reporter = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
@@ -56,7 +56,7 @@ class Advertisement(db.Model):
     photo_path = db.Column(db.String(500))
     category = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     owner = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    end_reason = db.Column(db.Integer, db.Enum(End_Reason), nullable=False)
+    end_reason = db.Column(db.Integer, db.Enum(EndReason), nullable=False)
     start_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime, nullable=False)
 
