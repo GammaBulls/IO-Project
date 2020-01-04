@@ -74,7 +74,7 @@ class Advertisement(db.Model):
     owner = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     end_reason = db.Column(db.Integer, db.Enum(EndReason), nullable=False)
     start_date = db.Column(db.DateTime, nullable=False)
-    expected_end_date = db.Column(db.DateTime, nullable=False)
+    # expected_end_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime)
 
     def __init__(self, price, title, category, photo_path, description, owner):
@@ -85,7 +85,8 @@ class Advertisement(db.Model):
         self.description = description
         self.owner = owner
         self.start_date = datetime.datetime.now()
-        self.expected_end_date = self.start_date + datetime.timedelta(days=30)
+        self.is_promoted = False
+        # self.expected_end_date = self.start_date + datetime.timedelta(days=30)
 
 
 class AdvertisementSchema(ma.Schema):
@@ -154,6 +155,37 @@ user_details_schema = UserDetailsSchema()
 users_details_schema = UserDetailsSchema(many=True)
 
 
+class Favorite(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ad = db.Column(db.Integer, db.ForeignKey('advertisement.id'), nullable=False)
+    user = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+
+class Conversation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    person_a = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    person_b = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message_text = db.Column(db.String(500), nullable=False)
+    message_date = db.Column(db.DateTime, nullable=False)
+    direction = db.Column(db.Boolean(), nullable=False)
+    conversation = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
+
+
+class AppSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(80), nullable=False)
+    value = db.Column(db.String(80), nullable=False)
+
+
+@app.route('/')
+def index():
+    return 'Wale wiadro'
+
+
 @app.route('/api/user', methods=['POST'])
 def create_user():
     name = request.json['name']
@@ -191,6 +223,16 @@ def get_user(id):
     return user_details_schema.jsonify(user)
 
 
+@app.route('/api/user/<id>', methods=['DELETE'])
+def delete_user(id):
+    user = User.query.get(id)
+    user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
+
+    db.session.commit()
+
+    return user_schema.jsonify(user)
+
+
 @app.route('/api/login', methods=['POST'])
 def login():
     password = request.json['password']
@@ -209,35 +251,32 @@ def login():
         return {'message': 'Wrong credentials'}
 
 
-class Favorite(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    ad = db.Column(db.Integer, db.ForeignKey('advertisement.id'), nullable=False)
-    user = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+@app.route('/api/me', methods=["GET"])
+@jwt_required
+def get_current_user():
+    current = get_jwt_identity()
+    user = User.find_by_email(current)
+    return user_details_schema.jsonify(user)
 
 
-class Conversation(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    person_a = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    person_b = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+@app.route('/api/me', methods=["DELETE"])
+@jwt_required
+def delete_current_user():
+    current = get_jwt_identity()
+    user = User.find_by_email(current)
+    delete_user(user.id)
+
+    return user_details_schema.jsonify(user)
 
 
-class Message(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    message_text = db.Column(db.String(500), nullable=False)
-    message_date = db.Column(db.DateTime, nullable=False)
-    direction = db.Column(db.Boolean(), nullable=False)
-    conversation = db.Column(db.Integer, db.ForeignKey('conversation.id'), nullable=False)
+@app.route('/api/me/cancel-delete', methods=["POST"])
+@jwt_required
+def cancel_delete():
+    current = get_jwt_identity()
+    user = User.find_by_email(current)
+    user.delete_date = None
 
-
-class AppSettings(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(80), nullable=False)
-    value = db.Column(db.String(80), nullable=False)
-
-
-@app.route('/')
-def index():
-    return 'Wale wiadro'
+    return user_details_schema.jsonify(user)
 
 
 @app.route('/api/ad', methods=['POST'])
@@ -247,7 +286,7 @@ def create_advertisement():
     category = request.json['categoryId']
     photo_path = request.json['pictureUrl']
     description = request.json['description']
-    owner = flask_login.current_user.get_id()
+    owner = get_jwt_identity()
 
     new_advertisement = Advertisement(price, title, category, photo_path, description, owner)
 
@@ -295,7 +334,6 @@ def delete_advertisement(id):
     return advertisement_schema.jsonify(advertisement)
 
 
-
 @app.route('/api/ad/<id>/extend', methods=['POST'])
 def extend_advertisement(id):
     advertisement = Advertisement.query.get(id)
@@ -313,10 +351,11 @@ def promote_advertisement(id):
     db.session.commit()
     return advertisement_schema.jsonify(advertisement)
 
+
 @app.route('/api/ad/<id>/report', methods=['POST'])
 def create_report(id):
     report_reason = request.json['reason']
-    new_report = Report(report_reason, id, flask_login.current_user.get_id())
+    new_report = Report(report_reason, id, get_jwt_identity())
 
     db.session.add(new_report)
     db.session.commit()
