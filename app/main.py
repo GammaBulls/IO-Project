@@ -7,6 +7,7 @@ from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 jwt_required, jwt_refresh_token_required, get_jwt_identity, get_raw_jwt)
 import os
 import enum
+import datetime
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -73,7 +74,37 @@ class Advertisement(db.Model):
     owner = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     end_reason = db.Column(db.Integer, db.Enum(EndReason), nullable=False)
     start_date = db.Column(db.DateTime, nullable=False)
-    end_date = db.Column(db.DateTime, nullable=False)
+    expected_end_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime)
+
+    def __init__(self, price, title, category, photo_path, description, owner):
+        self.price = price
+        self.title = title
+        self.category = category
+        self.photo_path = photo_path
+        self.description = description
+        self.owner = owner
+        self.start_date = datetime.datetime.now()
+        self.expected_end_date = self.start_date + datetime.timedelta(days=30)
+
+
+class AdvertisementSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'price', 'start_date', 'end_date', 'end_reason', 'title', 'category', 'owner', 'photo_path',
+                  'is_promoted')
+
+
+advertisement_schema = AdvertisementSchema()
+advertisements_schema = AdvertisementSchema(many=True)
+
+
+class AdvertisementDetailsSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'price', 'start_date', 'end_date', 'end_reason', 'title', 'category', 'owner', 'photo_path',
+                  'is_promoted', 'description')
+
+
+advertisement_details_schema = AdvertisementDetailsSchema()
 
 
 class User(db.Model):
@@ -209,6 +240,79 @@ def index():
     return 'Wale wiadro'
 
 
+@app.route('/api/ad', methods=['POST'])
+def create_advertisement():
+    price = request.json['price']
+    title = request.json['title']
+    category = request.json['categoryId']
+    photo_path = request.json['pictureUrl']
+    description = request.json['description']
+    owner = flask_login.current_user.get_id()
+
+    new_advertisement = Advertisement(price, title, category, photo_path, description, owner)
+
+    db.session.add(new_advertisement)
+    db.session.commit()
+
+    return advertisement_schema.jsonify(new_advertisement)
+
+
+@app.route('/api/ad', methods=['GET'])
+def get_advertisements():
+    all_advertisement = Advertisement.query.all()
+    result = advertisements_schema.dump(all_advertisement)
+    return jsonify(result)
+
+
+@app.route('/api/ad/<id>', methods=['GET'])
+def get_advertisement(id):
+    advertisement = Advertisement.query.get(id)
+    # TODO
+    # doklejenie informacji o tym czy jest w ulubionych
+    return advertisement_details_schema.jsonify(advertisement)
+
+
+@app.route('/api/ad/<id>', methods=['PUT'])
+def update_advertisement(id):
+    advertisement = Advertisement.query.get(id)
+    advertisement.price = request.json['price']
+    advertisement.title = request.json['title']
+    advertisement.category = request.json['categoryId']
+    advertisement.photo_path = request.json['pictureUrl']
+    advertisement.description = request.json['description']
+
+    db.session.commit()
+    return advertisement_schema.jsonify(advertisement)
+
+
+@app.route('/api/ad/<id>', methods=['DELETE'])
+def delete_advertisement(id):
+    advertisement = Advertisement.query.get(id)
+    advertisement.end_date = datetime.datetime.now()
+    advertisement.end_reason = request["reason"]
+
+    db.session.commit()
+    return advertisement_schema.jsonify(advertisement)
+
+
+
+@app.route('/api/ad/<id>/extend', methods=['POST'])
+def extend_advertisement(id):
+    advertisement = Advertisement.query.get(id)
+    advertisement.expected_end_date = datetime.datetime.now() + datetime.timedelta(days=30)
+
+    db.session.commit()
+    return advertisement_schema.jsonify(advertisement)
+
+
+@app.route('/api/ad/<id>', methods=['POST'])
+def promote_advertisement(id):
+    advertisement = Advertisement.query.get(id)
+    advertisement.is_promoted = True
+
+    db.session.commit()
+    return advertisement_schema.jsonify(advertisement)
+
 @app.route('/api/ad/<id>/report', methods=['POST'])
 def create_report(id):
     report_reason = request.json['reason']
@@ -251,7 +355,7 @@ def review_report(id):
 
     if ban_user:
         report = get_report(id)
-        advertisment = get_advetisement(report.advertisement)
+        advertisment = get_advertisement(report.advertisement)
         user = advertisment.owner
         delete_user(user)
 
