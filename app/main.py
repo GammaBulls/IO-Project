@@ -1,7 +1,10 @@
 from flask import Flask, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
-import flask_login
+from passlib.apps import custom_app_context as pwd_context
+from flask_jwt_extended import JWTManager
+from flask_jwt_extended import (create_access_token, create_refresh_token,
+                                jwt_required, jwt_refresh_token_required, get_jwt_identity, get_raw_jwt)
 import os
 import enum
 
@@ -10,6 +13,8 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.sqlite')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['JWT_SECRET_KEY'] = 'jwt-secret-string'
+jwt = JWTManager(app)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
 
@@ -89,6 +94,16 @@ class User(db.Model):
         self.phone_number = phone
         self.show_phone = show
 
+    def hash_password(self, password):
+        self.password_hash = pwd_context.encrypt(password)
+
+    def verify_password(self, password):
+        return pwd_context.verify(password, self.password_hash)
+
+    @classmethod
+    def find_by_email(cls, email):
+        return cls.query.filter_by(email=email).first()
+
 
 class UserSchema(ma.Schema):
     class Meta:
@@ -114,17 +129,26 @@ def create_user():
     email = request.json['email']
     phone = request.json['phone']
     show_phone = request.json['show_phone']
+    password = request.json['password']
     new_user = User(name, email, phone, show_phone)
+    new_user.hash_password(password)
+
+    # access_token = create_access_token(identity=email)
+    # refresh_token = create_refresh_token(identity=email)
 
     db.session.add(new_user)
     db.session.commit()
-
+    #
+    # to_return = user_details_schema.jsonify(new_user)
+    # to_return['access_token']=access_token
+    # to_return['refresh_token']=refresh_token
     return user_details_schema.jsonify(new_user)
 
 
 @app.route('/api/user', methods=['GET'])
 def get_users():
     all_users = User.query.all()
+    User.query.get
     result = users_details_schema.dump(all_users)
     return jsonify(result)
 
@@ -134,6 +158,24 @@ def get_user(id):
     user = User.query.get(id)
 
     return user_details_schema.jsonify(user)
+
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    password = request.json['password']
+    email = request.json['email']
+    user = User.find_by_email(email)
+
+    if user.verify_password(password):
+        access_token = create_access_token(identity=email)
+        refresh_token = create_refresh_token(identity=email)
+        return {
+            'message': 'Logged in as {}'.format(user.email),
+            'access_token': access_token,
+            'refresh_token': refresh_token
+        }
+    else:
+        return {'message': 'Wrong credentials'}
 
 
 class Favorite(db.Model):
@@ -177,10 +219,12 @@ def create_report(id):
 
     return report_schema.jsonify(new_report)
 
+
 @app.route('/api/report/<id>', methods=['GET'])
 def get_report(id):
     report = Report.query.get(id)
     return report_schema.jsonify(report)
+
 
 @app.route('/api/report/<id>', methods=['DELETE'])
 def delete_report(id):
@@ -188,6 +232,7 @@ def delete_report(id):
     db.session.delete(report)
     db.session.commit()
     return report_schema.jsonify(report)
+
 
 @app.route('/api/mod/reports', methods=['GET'])
 def get_reports():
@@ -200,7 +245,7 @@ def get_reports():
 def review_report(id):
     is_ok = request.json["isOk"]
     ban_user = request.json["banUser"]
-    
+
     if is_ok:
         delete_report(id)
 
@@ -209,6 +254,7 @@ def review_report(id):
         advertisment = get_advetisement(report.advertisement)
         user = advertisment.owner
         delete_user(user)
+
 
 @app.route('/api/category', methods=['POST'])
 def create_category():
@@ -222,6 +268,7 @@ def create_category():
 
 
 @app.route('/api/category', methods=['GET'])
+@jwt_required
 def get_categories():
     all_categories = Category.query.all()
     result = categories_schema.dump(all_categories)

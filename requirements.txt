@@ -2,4 +2,5 @@ flask
 flask-sqlalchemy
 flask-marshmallow
 marshmallow-sqlalchemy
-flask-login
+passlib
+flask_jwt_extended
