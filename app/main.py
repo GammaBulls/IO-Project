@@ -46,12 +46,15 @@ class Report(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     report_reason = db.Column(db.Integer, db.Enum(ReportReason), nullable=False)
     advertisement = db.Column(db.Integer, db.ForeignKey('advertisement.id'), nullable=False)
-    reporter = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    def __init__(self, report_reason, advertisement):
+        self.report_reason = report_reason
+        self.advertisement = advertisement
 
 
 class ReportSchema(ma.Schema):
     class Meta:
-        fields = ('id', 'report_reason', 'advertisement', 'reporter')
+        fields = ('id', 'report_reason', 'advertisement')
 
 
 report_schema = ReportSchema()
@@ -219,8 +222,20 @@ messages_schema = MessageSchema(many=True)
 
 class AppSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    key = db.Column(db.String(80), nullable=False)
+    key = db.Column(db.String(80), nullable=False, unique=True)
     value = db.Column(db.String(80), nullable=False)
+
+    def __init__(self, key, value):
+        self.key = key
+        self.value = value
+
+
+class AppSettingsSchema(ma.Schema):
+    class Meta:
+        fields = ('key', 'value')
+
+
+app_settings_schema = AppSettingsSchema(many=True)
 
 
 @app.route('/')
@@ -248,31 +263,6 @@ def create_user():
     # to_return['access_token']=access_token
     # to_return['refresh_token']=refresh_token
     return user_details_schema.jsonify(new_user)
-
-
-@app.route('/api/user', methods=['GET'])
-def get_users():
-    all_users = User.query.all()
-    User.query.get
-    result = users_details_schema.dump(all_users)
-    return jsonify(result)
-
-
-@app.route('/api/user/<id>', methods=['GET'])
-def get_user(id):
-    user = User.query.get(id)
-
-    return user_details_schema.jsonify(user)
-
-
-@app.route('/api/user/<id>', methods=['DELETE'])
-def delete_user(id):
-    user = User.query.get(id)
-    user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
-
-    db.session.commit()
-
-    return user_schema.jsonify(user)
 
 
 @app.route('/api/login', methods=['POST'])
@@ -319,8 +309,10 @@ def update_current_user():
 @jwt_required
 def delete_current_user():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
-    delete_user(user.id)
+    user = User.find_by_emai7l(current)
+    user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
+
+    db.session.commit()
 
     return user_details_schema.jsonify(user)
 
@@ -345,7 +337,17 @@ def get_favorite_ads():
     for favorite in favorites:
         ads.append(Advertisement.query.get(favorite.ad))
 
-    return favorites_schema.jsonify(favorites)
+    return advertisements_schema.jsonify(ads)
+
+
+@app.route('/api/me/ads', methods=["GET"])
+@jwt_required
+def get_my_ads():
+    current = get_jwt_identity()
+    user = User.find_by_email(current)
+    my_ads = Advertisement.query.filter_by(owner=user.email)
+
+    return advertisements_schema.jsonify(my_ads)
 
 
 @app.route('/api/ad', methods=['POST'])
@@ -403,7 +405,6 @@ def delete_advertisement(id):
     advertisement.end_reason = request["reason"]
 
     db.session.commit()
-    return advertisement_schema.jsonify(advertisement)
 
 
 @app.route('/api/ad/<id>/extend', methods=['POST'])
@@ -415,7 +416,7 @@ def extend_advertisement(id):
     return advertisement_schema.jsonify(advertisement)
 
 
-@app.route('/api/ad/<id>', methods=['POST'])
+@app.route('/api/ad/<id>/promote', methods=['POST'])
 def promote_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.is_promoted = True
@@ -452,35 +453,13 @@ def delete_ad_from_favorite(id):
     return advertisement_details_schema.jsonify(advertisement)
 
 
-@app.route('/api/favorites')
-def get_favorites():
-    all_favorites = Favorite.query.all()
-    return favorites_schema.jsonify(all_favorites)
-
-
 @app.route('/api/ad/<id>/report', methods=['POST'])
 def create_report(id):
     report_reason = request.json['reason']
-    new_report = Report(report_reason, id, get_jwt_identity())
+    new_report = Report(report_reason, id)
 
     db.session.add(new_report)
     db.session.commit()
-
-    return report_schema.jsonify(new_report)
-
-
-@app.route('/api/report/<id>', methods=['GET'])
-def get_report(id):
-    report = Report.query.get(id)
-    return report_schema.jsonify(report)
-
-
-@app.route('/api/report/<id>', methods=['DELETE'])
-def delete_report(id):
-    report = Report.query.get(id)
-    db.session.delete(report)
-    db.session.commit()
-    return report_schema.jsonify(report)
 
 
 @app.route('/api/mod/reports', methods=['GET'])
@@ -494,58 +473,33 @@ def get_reports():
 def review_report(id):
     is_ok = request.json["isOk"]
     ban_user = request.json["banUser"]
-
-    if is_ok:
-        delete_report(id)
+    report = Report.query.get(id)
 
     if ban_user:
-        report = get_report(id)
-        advertisment = get_advertisement(report.advertisement)
-        user = advertisment.owner
-        delete_user(user)
+        advertisement = get_advertisement(report.advertisement)
+        user = advertisement.owner
+        user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
 
+    if is_ok:
+        db.session.delete(id)
 
-@app.route('/api/category', methods=['POST'])
-def create_category():
-    name = request.json['category_name']
-    new_category = Category(name)
-
-    db.session.add(new_category)
     db.session.commit()
 
-    return category_schema.jsonify(new_category)
+
+@app.route("/api/mod/ban/<id>", methods=['POST'])
+def ban_user(id):
+    user = User.query.get(id)
+    user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
+
+    db.session.commit()
 
 
-@app.route('/api/category', methods=['GET'])
+@app.route('/api/categories', methods=['GET'])
 @jwt_required
 def get_categories():
     all_categories = Category.query.all()
     result = categories_schema.dump(all_categories)
     return jsonify(result)
-
-
-@app.route('/api/category/<id>', methods=['GET'])
-def get_category(id):
-    category = Category.query.get(id)
-
-    return category_schema.jsonify(category)
-
-
-@app.route('/api/category/<id>', methods=['PUT'])
-def update_category(id):
-    category = Category.query.get(id)
-    category.category_name = request.json['category_name']
-
-    db.session.commit()
-    return category_schema.jsonify(category)
-
-
-@app.route('/api/category/<id>', methods=['DELETE'])
-def delete_category(id):
-    category = Category.query.get(id)
-    db.session.delete(category)
-    db.session.commit()
-    return category_schema.jsonify(category)
 
 
 @app.route('/api/chat', methods=["POST"])
@@ -599,6 +553,57 @@ def create_message(id):
     messages = Message.query.filter_by(conversation=id)
 
     return messages_schema.jsonify(messages)
+
+
+@app.route("/api/admin/price", methods=["POST"])
+def set_price():
+    new_price = request.json["newPrice"]
+    price = AppSettings.query.filter_by(key="price").first()
+
+    if price is None:
+        price = AppSettings("price", new_price)
+        db.session.add(price)
+    else:
+        price.value = new_price
+
+    db.session.commit()
+
+
+@app.route('/api/admin/users', methods=['GET'])
+def get_users():
+    all_users = User.query.all()
+    result = users_details_schema.dump(all_users)
+    return jsonify(result)
+
+
+@app.route('/api/admin/users/<id>', methods=['PUT'])
+def change_moderator_status(id):
+    user = User.query.get(id)
+    is_moderator = request.json["isModerator"]
+    user.is_moderator = is_moderator
+
+    db.session.commit()
+
+    return user_details_schema.jsonify(user)
+
+
+@app.route('/api/admin/categories', methods=['POST'])
+def create_category():
+    name = request.json['category_name']
+    new_category = Category(name)
+
+    db.session.add(new_category)
+    db.session.commit()
+
+    return category_schema.jsonify(new_category)
+
+
+@app.route('/api/admin/categories/<id>', methods=['DELETE'])
+def delete_category(id):
+    category = Category.query.get(id)
+    db.session.delete(category)
+    db.session.commit()
+    return category_schema.jsonify(category)
 
 
 if __name__ == '__main__':
