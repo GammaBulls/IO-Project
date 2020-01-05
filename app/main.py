@@ -5,10 +5,12 @@ from passlib.apps import custom_app_context as pwd_context
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 jwt_required, jwt_refresh_token_required, get_jwt_identity, get_raw_jwt)
+from flask_mail import Mail, Message
 from functools import wraps
 import os
 import enum
 import datetime
+import jwt
 
 app = Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -16,9 +18,16 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.sqlite')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JWT_SECRET_KEY'] = 'jwt-secret-string'
-jwt = JWTManager(app)
+app.config['SECRET_KEY'] = 'jwt-secret-string'
+app.config['MAIL_SERVER'] = 'mail.cock.li'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_SSL'] = True
+app.config['MAIL_USERNAME'] = 'ogloszenioofka@nuke.africa'
+app.config['MAIL_PASSWORD'] = 'MyciekTop'
+jwtmgr = JWTManager(app)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
+mail = Mail(app)
 
 
 def require_permissions(access_level):
@@ -177,7 +186,10 @@ class User(db.Model):
 
     @classmethod
     def find_by_email(cls, email):
-        return cls.query.filter_by(email=email).first()
+        user = cls.query.filter_by(email=email).first()
+        if user is None:
+            raise FileNotFoundError
+        return user
 
 
 class UserSchema(ma.Schema):
@@ -236,7 +248,7 @@ conversation_schema = ConversationSchema()
 conversations_schema = ConversationSchema(many=True)
 
 
-class Message(db.Model):
+class ChatMessage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     message_text = db.Column(db.String(500), nullable=False)
     message_date = db.Column(db.DateTime, nullable=False)
@@ -292,12 +304,12 @@ def create_user():
     password = request.json['password']
     new_user = User(name, email, phone, show_phone)
     new_user.hash_password(password)
-
-    # access_token = create_access_token(identity=email)
     # refresh_token = create_refresh_token(identity=email)
 
     db.session.add(new_user)
     db.session.commit()
+    token = encode_auth_token(new_user.id)
+    send_email(email, token)
     #
     # to_return = user_details_schema.jsonify(new_user)
     # to_return['access_token']=access_token
@@ -305,12 +317,72 @@ def create_user():
     return user_details_schema.jsonify(new_user)
 
 
+def encode_auth_token(id):
+    """
+    Generates the Auth Token
+    :return: string
+    """
+    try:
+        payload = {
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1),
+            'iat': datetime.datetime.utcnow(),
+            'sub': id,
+        }
+        token = str(jwt.encode(
+            payload,
+            app.config.get('JWT_SECRET_KEY'),
+            algorithm='HS256'
+        ))
+        token = token.replace("'", '')
+        token = token[1:]
+        return token
+    except Exception as e:
+        return e
+
+
+def decode_auth_token(auth_token):
+    """
+    Decodes the auth token
+    :param auth_token:
+    :return: integer|string
+    """
+    try:
+        payload = jwt.decode(auth_token, app.config.get('JWT_SECRET_KEY'))
+        return payload['sub']
+    except jwt.ExpiredSignatureError:
+        return 'Signature expired. Please log in again.'
+    except jwt.InvalidTokenError:
+        return 'Invalid token. Please log in again.'
+
+
+@app.route('/api/activate/<token>/<email>', methods=['GET'])
+def activate_user(token, email):
+    try:
+        user = User.find_by_email(email)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
+
+    id = decode_auth_token(token)
+    if id is not user.id:
+        return {'message': 'Wrong token'}
+
+    user.is_activated = True
+
+    db.session.commit()
+    return user_details_schema.jsonify(user)
+
+
 @app.route('/api/login', methods=['POST'])
 def login():
     password = request.json['password']
     email = request.json['email']
-    user = User.find_by_email(email)
+    try:
+        user = User.find_by_email(email)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
 
+    if not user.is_activated:
+        return {'message': 'User not activated'}
     if user.verify_password(password):
         access_token = create_access_token(identity=email)
         refresh_token = create_refresh_token(identity=email)
@@ -327,7 +399,10 @@ def login():
 @jwt_required
 def get_current_user():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     return user_details_schema.jsonify(user)
 
 
@@ -335,7 +410,10 @@ def get_current_user():
 @jwt_required
 def update_current_user():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     user.name = request.json["name"]
     user.email = request.json["email"]
     user.phone_number = request.json["phone"]
@@ -361,7 +439,10 @@ def delete_current_user():
 @jwt_required
 def cancel_delete():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     user.delete_date = None
 
     return user_details_schema.jsonify(user)
@@ -371,7 +452,10 @@ def cancel_delete():
 @jwt_required
 def get_favorite_ads():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     favorites = Favorite.query.filter_by(user=user.id)
     ads = []
     for favorite in favorites:
@@ -384,7 +468,10 @@ def get_favorite_ads():
 @jwt_required
 def get_my_ads():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     my_ads = Advertisement.query.filter_by(owner=user.email)
 
     return advertisements_schema.jsonify(my_ads)
@@ -479,7 +566,10 @@ def promote_advertisement(id):
 def add_ad_to_favorite(id):
     advertisement = Advertisement.query.get(id)
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     new_favorite = Favorite(user.id, id)
 
     db.session.add(new_favorite)
@@ -493,7 +583,10 @@ def add_ad_to_favorite(id):
 def delete_ad_from_favorite(id):
     advertisement = Advertisement.query.get(id)
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     favorite = Favorite.query.filter_by(ad=id, user=user.id).first()
 
     db.session.delete(favorite)
@@ -562,7 +655,10 @@ def get_categories():
 @jwt_required
 def create_conversation():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     person_b = request.json["id"]
     conversation = Conversation(user.id, person_b)
 
@@ -576,7 +672,10 @@ def create_conversation():
 @jwt_required
 def get_conversations():
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     conversations = Conversation.query.filter((Conversation.person_a == user.id) | (Conversation.person_b == user.id))
 
     return conversations_schema.jsonify(conversations)
@@ -585,7 +684,7 @@ def get_conversations():
 @app.route("/api/chat/<id>", methods=["GET"])
 @jwt_required
 def get_conversation(id):
-    messages = Message.query.filter_by(conversation=id)
+    messages = ChatMessage.query.filter_by(conversation=id)
 
     return messages_schema.jsonify(messages)
 
@@ -594,7 +693,10 @@ def get_conversation(id):
 @jwt_required
 def create_message(id):
     current = get_jwt_identity()
-    user = User.find_by_email(current)
+    try:
+        user = User.find_by_email(current)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
     conversation = Conversation.query.get(id)
     message_text = request.json["message"]
     direction = True
@@ -602,12 +704,12 @@ def create_message(id):
     if user.id is conversation.person_b:
         direction = False
 
-    message = Message(message_text, direction, id)
+    message = ChatMessage(message_text, direction, id)
 
     db.session.add(message)
     db.session.commit()
 
-    messages = Message.query.filter_by(conversation=id)
+    messages = ChatMessage.query.filter_by(conversation=id)
 
     return messages_schema.jsonify(messages)
 
@@ -670,6 +772,13 @@ def delete_category(id):
     db.session.delete(category)
     db.session.commit()
     return category_schema.jsonify(category)
+
+
+def send_email(email, access_token):
+    msg = Message(subject='Activation', body='localhost:8000/api/activate/{}/{}'.format(access_token,email),
+                  sender='ogloszenioofka@nuke.africa', recipients=[email])
+    mail.send(msg)
+    return 'Email sent!'
 
 
 if __name__ == '__main__':
