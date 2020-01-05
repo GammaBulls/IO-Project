@@ -5,6 +5,7 @@ from passlib.apps import custom_app_context as pwd_context
 from flask_jwt_extended import JWTManager
 from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 jwt_required, jwt_refresh_token_required, get_jwt_identity, get_raw_jwt)
+from functools import wraps
 import os
 import enum
 import datetime
@@ -18,6 +19,45 @@ app.config['JWT_SECRET_KEY'] = 'jwt-secret-string'
 jwt = JWTManager(app)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
+
+
+def require_permissions(access_level):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            current = get_jwt_identity()
+            user = User.find_by_email(current)
+            if access_level is "admin":
+                if not user.is_admin:
+                    return "", 403
+            if access_level is "mod":
+                if not user.is_moderator and not user.is_admin:
+                    return "", 403
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
+
+
+def is_owner():
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            current = get_jwt_identity()
+            user = User.find_by_email(current)
+
+            model_id = kwargs["id"]
+            model = Advertisement.query.get(model_id)
+            if not model.owner == user.email:
+                return "", 403
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
 
 
 class Category(db.Model):
@@ -378,6 +418,7 @@ def get_advertisements():
 
 
 @app.route('/api/ad/<id>', methods=['GET'])
+@jwt_required
 def get_advertisement(id):
     advertisement = Advertisement.query.get(id)
     # TODO
@@ -386,6 +427,8 @@ def get_advertisement(id):
 
 
 @app.route('/api/ad/<id>', methods=['PUT'])
+@jwt_required
+@is_owner()
 def update_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.price = request.json['price']
@@ -399,6 +442,8 @@ def update_advertisement(id):
 
 
 @app.route('/api/ad/<id>', methods=['DELETE'])
+@jwt_required
+@is_owner()
 def delete_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.end_date = datetime.datetime.now()
@@ -408,6 +453,8 @@ def delete_advertisement(id):
 
 
 @app.route('/api/ad/<id>/extend', methods=['POST'])
+@jwt_required
+@is_owner()
 def extend_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.expected_end_date = datetime.datetime.now() + datetime.timedelta(days=30)
@@ -417,6 +464,8 @@ def extend_advertisement(id):
 
 
 @app.route('/api/ad/<id>/promote', methods=['POST'])
+@jwt_required
+@is_owner()
 def promote_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.is_promoted = True
@@ -454,6 +503,7 @@ def delete_ad_from_favorite(id):
 
 
 @app.route('/api/ad/<id>/report', methods=['POST'])
+@jwt_required
 def create_report(id):
     report_reason = request.json['reason']
     new_report = Report(report_reason, id)
@@ -463,6 +513,8 @@ def create_report(id):
 
 
 @app.route('/api/mod/reports', methods=['GET'])
+@jwt_required
+@require_permissions("mod")
 def get_reports():
     all_reports = Report.query.all()
     result = reports_schema.dump(all_reports)
@@ -470,6 +522,8 @@ def get_reports():
 
 
 @app.route('/api/mod/reports/<id>', methods=['POST'])
+@jwt_required
+@require_permissions("mod")
 def review_report(id):
     is_ok = request.json["isOk"]
     ban_user = request.json["banUser"]
@@ -487,6 +541,8 @@ def review_report(id):
 
 
 @app.route("/api/mod/ban/<id>", methods=['POST'])
+@jwt_required
+@require_permissions("mod")
 def ban_user(id):
     user = User.query.get(id)
     user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
@@ -527,6 +583,7 @@ def get_conversations():
 
 
 @app.route("/api/chat/<id>", methods=["GET"])
+@jwt_required
 def get_conversation(id):
     messages = Message.query.filter_by(conversation=id)
 
@@ -556,6 +613,7 @@ def create_message(id):
 
 
 @app.route("/api/admin/price", methods=["POST"])
+@jwt_required
 def set_price():
     new_price = request.json["newPrice"]
     price = AppSettings.query.filter_by(key="price").first()
@@ -570,6 +628,8 @@ def set_price():
 
 
 @app.route('/api/admin/users', methods=['GET'])
+@jwt_required
+@require_permissions("admin")
 def get_users():
     all_users = User.query.all()
     result = users_details_schema.dump(all_users)
@@ -577,6 +637,8 @@ def get_users():
 
 
 @app.route('/api/admin/users/<id>', methods=['PUT'])
+@jwt_required
+@require_permissions("admin")
 def change_moderator_status(id):
     user = User.query.get(id)
     is_moderator = request.json["isModerator"]
@@ -588,6 +650,8 @@ def change_moderator_status(id):
 
 
 @app.route('/api/admin/categories', methods=['POST'])
+@jwt_required
+@require_permissions("admin")
 def create_category():
     name = request.json['category_name']
     new_category = Category(name)
@@ -599,6 +663,8 @@ def create_category():
 
 
 @app.route('/api/admin/categories/<id>', methods=['DELETE'])
+@jwt_required
+@require_permissions("admin")
 def delete_category(id):
     category = Category.query.get(id)
     db.session.delete(category)
