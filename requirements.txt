@@ -5,3 +5,4 @@ marshmallow-sqlalchemy
 passlib
 flask_jwt_extended
 flask_mail
+flask-cors

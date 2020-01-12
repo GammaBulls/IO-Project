@@ -7,12 +7,14 @@ from flask_jwt_extended import (create_access_token, create_refresh_token,
                                 jwt_required, jwt_refresh_token_required, get_jwt_identity, get_raw_jwt)
 from flask_mail import Mail, Message
 from functools import wraps
+from flask_cors import CORS
 import os
 import enum
 import datetime
 import jwt
 
 app = Flask(__name__)
+cors = CORS(app)
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.sqlite')
