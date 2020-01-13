@@ -646,7 +646,6 @@ def ban_user(id):
 
 
 @app.route('/api/categories', methods=['GET'])
-@jwt_required
 def get_categories():
     all_categories = Category.query.all()
     result = categories_schema.dump(all_categories)
