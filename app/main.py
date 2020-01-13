@@ -507,7 +507,6 @@ def get_advertisements():
 
 
 @app.route('/api/ad/<id>', methods=['GET'])
-@jwt_required
 def get_advertisement(id):
     advertisement = Advertisement.query.get(id)
     # TODO
