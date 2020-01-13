@@ -12,6 +12,7 @@ import os
 import enum
 import datetime
 import jwt
+import requests
 
 app = Flask(__name__)
 cors = CORS(app)
@@ -123,7 +124,7 @@ class Advertisement(db.Model):
     description = db.Column(db.String(500), nullable=False)
     price = db.Column(db.Float(precision='5,2'))
     is_promoted = db.Column(db.Boolean(), nullable=False)
-    photo_path = db.Column(db.String(500))
+    photos = db.relationship('Photo', backref='owner')
     category = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
     owner = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     end_reason = db.Column(db.Integer, db.Enum(EndReason), nullable=True)
@@ -131,11 +132,10 @@ class Advertisement(db.Model):
     expected_end_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime)
 
-    def __init__(self, price, title, category, photo_path, description, owner):
+    def __init__(self, price, title, category, description, owner):
         self.price = price
         self.title = title
         self.category = category
-        self.photo_path = photo_path
         self.description = description
         self.owner = owner
         self.start_date = datetime.datetime.now()
@@ -155,11 +155,25 @@ advertisements_schema = AdvertisementSchema(many=True)
 
 class AdvertisementDetailsSchema(ma.Schema):
     class Meta:
-        fields = ('id', 'price', 'start_date', 'end_date', 'end_reason', 'title', 'category', 'owner', 'photo_path',
+        fields = ('id', 'price', 'start_date', 'end_date', 'end_reason', 'title', 'category', 'owner',
                   'is_promoted', 'description')
 
 
 advertisement_details_schema = AdvertisementDetailsSchema()
+
+
+class Photo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    link = db.Column(db.String)
+    ad_id = db.Column(db.Integer, db.ForeignKey('advertisement.id'))
+
+
+class PhotoSchema(ma.Schema):
+    class Meta:
+        fields = ('id', 'link')
+
+
+photos_schema = PhotoSchema(many=True)
 
 
 class User(db.Model):
@@ -485,16 +499,38 @@ def create_advertisement():
     price = request.json['price']
     title = request.json['title']
     category = request.json['categoryId']
-    photo_path = request.json['pictureUrl']
     description = request.json['description']
+    photos = request.json['photos']
     owner = get_jwt_identity()
 
-    new_advertisement = Advertisement(price, title, category, photo_path, description, owner)
-
+    new_advertisement = Advertisement(price, title, category, description, owner)
     db.session.add(new_advertisement)
+
+    for id in photos:
+        photo = Photo.query.get(id)
+        photo.owner = new_advertisement
+
     db.session.commit()
 
     return advertisement_schema.jsonify(new_advertisement)
+
+
+@app.route('/api/upload', methods=['POST'])
+def upload():
+    api = 'https://api.imgur.com/3/image'
+    photos = list()
+    if request.files:
+        for file in request.files:
+            response = requests.post(url=api, files={'image': request.files[file]},
+                                     headers={'Authorization': 'Client-ID 654d7a558a52b5f'})
+            link = response.json()['data']['link']
+            photo = Photo(link=link)
+            db.session.add(photo)
+            photos.append(photo)
+
+    db.session.commit()
+
+    return photos_schema.jsonify(photos)
 
 
 @app.route('/api/ad', methods=['GET'])
@@ -676,7 +712,8 @@ def get_conversations():
         user = User.find_by_email(current)
     except FileNotFoundError:
         return {'message': 'No such user'}
-    conversations = Conversation.query.filter((Conversation.person_a == user.id) | (Conversation.person_b == user.id))
+    conversations = Conversation.query.filter(
+        (Conversation.person_a == user.id) | (Conversation.person_b == user.id))
 
     return conversations_schema.jsonify(conversations)
 
@@ -753,7 +790,7 @@ def change_moderator_status(id):
 
 @app.route('/api/admin/categories', methods=['POST'])
 @jwt_required
-@require_permissions("admin")
+@require_permissions('admin')
 def create_category():
     name = request.json['category_name']
     new_category = Category(name)
@@ -775,7 +812,7 @@ def delete_category(id):
 
 
 def send_email(email, access_token):
-    msg = Message(subject='Activation', body='localhost:8000/api/activate/{}/{}'.format(access_token,email),
+    msg = Message(subject='Activation', body='localhost:8000/api/activate/{}/{}'.format(access_token, email),
                   sender='ogloszenioofka@nuke.africa', recipients=[email])
     mail.send(msg)
     return 'Email sent!'
