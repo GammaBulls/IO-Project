@@ -7,3 +7,4 @@ flask_jwt_extended
 flask_mail
 flask-cors
 requests
+flask-expects-json

@@ -8,6 +8,8 @@ from flask_jwt_extended import (create_access_token, create_refresh_token,
 from flask_mail import Mail, Message
 from functools import wraps
 from flask_cors import CORS
+from flask_expects_json import expects_json
+
 import os
 import enum
 import datetime
@@ -87,6 +89,13 @@ class CategorySchema(ma.Schema):
 
 category_schema = CategorySchema()
 categories_schema = CategorySchema(many=True)
+category_json_schema = {
+    'type': 'object',
+    'properties': {
+        'category_name': {'type': 'string'},
+    },
+    'required': ['category_name']
+}
 
 
 class ReportReason(enum.Enum):
@@ -111,6 +120,14 @@ class ReportSchema(ma.Schema):
 
 report_schema = ReportSchema()
 reports_schema = ReportSchema(many=True)
+
+report_json_schema = {
+    'type': 'object',
+    'properties': {
+        'reason': {'type': 'string'},
+    },
+    'required': ['reason']
+}
 
 
 class EndReason(enum.Enum):
@@ -160,6 +177,18 @@ class AdvertisementDetailsSchema(ma.Schema):
 
 
 advertisement_details_schema = AdvertisementDetailsSchema()
+
+advertisement_json_schema = {
+    'type': 'object',
+    'properties': {
+        'price': {'type': 'number'},
+        'title': {'type': 'string'},
+        'categoryId': {'type': 'string'},
+        'description': {'type': 'string'},
+        'photos': {'type': 'array'},
+    },
+    'required': ['price', 'title', 'categoryId', 'description', 'photos']
+}
 
 
 class Photo(db.Model):
@@ -224,6 +253,18 @@ class UserDetailsSchema(ma.Schema):
 
 user_details_schema = UserDetailsSchema()
 users_details_schema = UserDetailsSchema(many=True)
+
+user_json_schema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'email': {'type': 'string'},
+        'phone': {'type': 'string'},
+        'showPhone': {'type': 'string'},
+        'password': {'type': 'string'},
+    },
+    'required': ['name', 'email', 'phone', 'showPhone', 'password']
+}
 
 
 class Favorite(db.Model):
@@ -312,6 +353,7 @@ def index():
 
 
 @app.route('/api/user', methods=['POST'])
+@expects_json(user_json_schema)
 def create_user():
     name = request.json['name']
     email = request.json['email']
@@ -388,7 +430,18 @@ def activate_user(token, email):
     return user_details_schema.jsonify(user)
 
 
+login_json_schema = {
+    'type': 'object',
+    'properties': {
+        'password': {'type': 'string'},
+        'email': {'type': 'string'},
+    },
+    'required': ['password', 'email']
+}
+
+
 @app.route('/api/login', methods=['POST'])
+@expects_json(login_json_schema)
 def login():
     password = request.json['password']
     email = request.json['email']
@@ -413,6 +466,7 @@ def login():
 
 @app.route('/api/me', methods=["GET"])
 @jwt_required
+@expects_json(user_json_schema)
 def get_current_user():
     current = get_jwt_identity()
     try:
@@ -424,6 +478,7 @@ def get_current_user():
 
 @app.route('/api/me', methods=["PUT"])
 @jwt_required
+@expects_json(user_json_schema)
 def update_current_user():
     current = get_jwt_identity()
     try:
@@ -495,6 +550,7 @@ def get_my_ads():
 
 @app.route('/api/ad', methods=['POST'])
 @jwt_required
+@expects_json(advertisement_json_schema)
 def create_advertisement():
     price = request.json['price']
     title = request.json['title']
@@ -553,21 +609,35 @@ def get_advertisement(id):
 @app.route('/api/ad/<id>', methods=['PUT'])
 @jwt_required
 @is_owner()
+@expects_json(advertisement_json_schema)
 def update_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.price = request.json['price']
     advertisement.title = request.json['title']
     advertisement.category = request.json['categoryId']
-    advertisement.photo_path = request.json['pictureUrl']
+    photos = request.json['photos']
+    for id in photos:
+        photo = Photo.query.get(id)
+        photo.owner = advertisement
     advertisement.description = request.json['description']
 
     db.session.commit()
     return advertisement_schema.jsonify(advertisement)
 
 
+delete_ad_json_schema = {
+    'type': 'object',
+    'properties': {
+        'reason': {'type': 'string'},
+    },
+    'required': ['reason']
+}
+
+
 @app.route('/api/ad/<id>', methods=['DELETE'])
 @jwt_required
 @is_owner()
+@expects_json(delete_ad_json_schema)
 def delete_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.end_date = datetime.datetime.now()
@@ -634,6 +704,7 @@ def delete_ad_from_favorite(id):
 
 @app.route('/api/ad/<id>/report', methods=['POST'])
 @jwt_required
+@expects_json(report_json_schema)
 def create_report(id):
     report_reason = request.json['reason']
     new_report = Report(report_reason, id)
@@ -651,9 +722,20 @@ def get_reports():
     return jsonify(result)
 
 
+review_json_schema = {
+    'type': 'object',
+    'properties': {
+        'is_ok': {'type': 'boolean'},
+        'banUser': {'type': 'boolean'},
+    },
+    'required': ['is_ok', 'banUser']
+}
+
+
 @app.route('/api/mod/reports/<id>', methods=['POST'])
 @jwt_required
 @require_permissions("mod")
+@expects_json(review_json_schema)
 def review_report(id):
     is_ok = request.json["isOk"]
     ban_user = request.json["banUser"]
@@ -687,8 +769,18 @@ def get_categories():
     return jsonify(result)
 
 
+create_conversation_json_schema = {
+    'type': 'object',
+    'properties': {
+        'id': {'type': 'id'},
+    },
+    'required': ['id']
+}
+
+
 @app.route('/api/chat', methods=["POST"])
 @jwt_required
+@expects_json(create_conversation_json_schema)
 def create_conversation():
     current = get_jwt_identity()
     try:
@@ -726,8 +818,18 @@ def get_conversation(id):
     return messages_schema.jsonify(messages)
 
 
+message_json_schema = {
+    'type': 'object',
+    'properties': {
+        'message': {'type': 'string'},
+    },
+    'required': ['message']
+}
+
+
 @app.route("/api/chat/<id>", methods=["POST"])
 @jwt_required
+@expects_json(message_json_schema)
 def create_message(id):
     current = get_jwt_identity()
     try:
@@ -751,8 +853,18 @@ def create_message(id):
     return messages_schema.jsonify(messages)
 
 
+price_json_schema = {
+    'type': 'object',
+    'properties': {
+        'price': {'type': 'number'},
+    },
+    'required': ['price']
+}
+
+
 @app.route("/api/admin/price", methods=["POST"])
 @jwt_required
+@expects_json(price_json_schema)
 def set_price():
     new_price = request.json["newPrice"]
     price = AppSettings.query.filter_by(key="price").first()
@@ -775,9 +887,19 @@ def get_users():
     return jsonify(result)
 
 
+is_moderator_json_schema = {
+    'type': 'object',
+    'properties': {
+        'isModerator': {'type': 'boolean'},
+    },
+    'required': ['isModerator']
+}
+
+
 @app.route('/api/admin/users/<id>', methods=['PUT'])
 @jwt_required
 @require_permissions("admin")
+@expects_json(is_moderator_json_schema)
 def change_moderator_status(id):
     user = User.query.get(id)
     is_moderator = request.json["isModerator"]
@@ -791,6 +913,7 @@ def change_moderator_status(id):
 @app.route('/api/admin/categories', methods=['POST'])
 @jwt_required
 @require_permissions('admin')
+@expects_json(category_json_schema)
 def create_category():
     name = request.json['category_name']
     new_category = Category(name)
