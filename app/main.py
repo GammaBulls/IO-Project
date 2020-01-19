@@ -260,7 +260,7 @@ user_json_schema = {
         'name': {'type': 'string'},
         'email': {'type': 'string'},
         'phone': {'type': 'string'},
-        'showPhone': {'type': 'string'},
+        'showPhone': {'type': 'boolean'},
         'password': {'type': 'string'},
     },
     'required': ['name', 'email', 'phone', 'showPhone', 'password']
@@ -466,7 +466,6 @@ def login():
 
 @app.route('/api/me', methods=["GET"])
 @jwt_required
-@expects_json(user_json_schema)
 def get_current_user():
     current = get_jwt_identity()
     try:
