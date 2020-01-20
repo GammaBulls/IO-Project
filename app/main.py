@@ -27,7 +27,7 @@ app.config['SECRET_KEY'] = 'jwt-secret-string'
 app.config['MAIL_SERVER'] = 'mail.cock.li'
 app.config['MAIL_PORT'] = 465
 app.config['MAIL_USE_SSL'] = True
-app.config['MAIL_USERNAME'] = 'ogloszenioofka@nuke.africa'
+app.config['MAIL_USERNAME'] = 'ogloszenioofka@goat.si'
 app.config['MAIL_PASSWORD'] = 'MyciekTop'
 jwtmgr = JWTManager(app)
 db = SQLAlchemy(app)
@@ -64,7 +64,7 @@ def is_owner():
 
             model_id = kwargs["id"]
             model = Advertisement.query.get(model_id)
-            if not model.owner == user.email:
+            if not model.owner == user.id:
                 return "", 403
 
             return f(*args, **kwargs)
@@ -542,7 +542,7 @@ def get_my_ads():
         user = User.find_by_email(current)
     except FileNotFoundError:
         return {'message': 'No such user'}
-    my_ads = Advertisement.query.filter_by(owner=user.email)
+    my_ads = Advertisement.query.filter_by(owner=user.id)
 
     return advertisements_schema.jsonify(my_ads)
 
@@ -556,7 +556,7 @@ def create_advertisement():
     category = request.json['categoryId']
     description = request.json['description']
     photos = request.json['photos']
-    owner = get_jwt_identity()
+    owner = User.find_by_email(get_jwt_identity()).id
 
     new_advertisement = Advertisement(price, title, category, description, owner)
     db.session.add(new_advertisement)
@@ -742,7 +742,7 @@ def review_report(id):
 
     if ban_user:
         advertisement = get_advertisement(report.advertisement)
-        user = advertisement.owner
+        user = User.query.get(advertisement.owner)
         user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
 
     if is_ok:
@@ -935,7 +935,7 @@ def delete_category(id):
 
 def send_email(email, access_token):
     msg = Message(subject='Activation', body='localhost:8000/api/activate/{}/{}'.format(access_token, email),
-                  sender='ogloszenioofka@nuke.africa', recipients=[email])
+                  sender='ogloszenioofka@goat.si', recipients=[email])
     mail.send(msg)
     return 'Email sent!'
 
