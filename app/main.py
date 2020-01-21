@@ -268,6 +268,14 @@ user_json_schema = {
 }
 
 
+class UserPublicInfoSchema(ma.Schema):
+    class Meta:
+        fields = ('name', 'phone_number')
+
+
+user_public_info_schema = UserPublicInfoSchema()
+
+
 class Favorite(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ad = db.Column(db.Integer, db.ForeignKey('advertisement.id'), nullable=False)
@@ -463,6 +471,17 @@ def login():
         }
     else:
         return {'message': 'Wrong credentials'}
+
+
+@app.route('/api/public/<id>')
+def get_public_info(id):
+    try:
+        user = User.query.get(id)
+        if not user.show_phone:
+            user.phone_number = None
+        return user_public_info_schema.jsonify(user)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
 
 
 @app.route('/api/me', methods=["GET"])
