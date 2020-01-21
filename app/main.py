@@ -3,7 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from passlib.apps import custom_app_context as pwd_context
 from flask_jwt_extended import JWTManager
-from flask_jwt_extended import (create_access_token, create_refresh_token,
+from flask_jwt_extended import (create_access_token, create_refresh_token, jwt_optional,
                                 jwt_required, jwt_refresh_token_required, get_jwt_identity, get_raw_jwt)
 from flask_mail import Mail, Message
 from functools import wraps
@@ -148,6 +148,7 @@ class Advertisement(db.Model):
     start_date = db.Column(db.DateTime, nullable=False)
     expected_end_date = db.Column(db.DateTime, nullable=False)
     end_date = db.Column(db.DateTime)
+    is_favorite = False
 
     def __init__(self, price, title, category, description, owner):
         self.price = price
@@ -163,7 +164,7 @@ class Advertisement(db.Model):
 class AdvertisementSchema(ma.Schema):
     class Meta:
         fields = ('id', 'price', 'start_date', 'end_date', 'end_reason', 'title', 'category', 'owner', 'photo_path',
-                  'is_promoted')
+                  'is_promoted', 'is_favorite')
 
 
 advertisement_schema = AdvertisementSchema()
@@ -173,7 +174,7 @@ advertisements_schema = AdvertisementSchema(many=True)
 class AdvertisementDetailsSchema(ma.Schema):
     class Meta:
         fields = ('id', 'price', 'start_date', 'end_date', 'end_reason', 'title', 'category', 'owner',
-                  'is_promoted', 'description')
+                  'is_promoted', 'is_favorite', 'description')
 
 
 advertisement_details_schema = AdvertisementDetailsSchema()
@@ -589,19 +590,35 @@ def upload():
 
 
 @app.route('/api/ad', methods=['GET'])
+@jwt_optional
 def get_advertisements():
     all_advertisement = Advertisement.query.all()
-    result = advertisements_schema.dump(all_advertisement)
-    # TODO
-    # filtry wyszukiwania
-    return jsonify(result)
+    user = get_jwt_identity()
+    if user:
+        current = User.find_by_email(user)
+        favorites = Favorite.query.filter_by(user=current.id)
+        for ad in all_advertisement:
+            for fav in favorites:
+                if fav.ad == ad.id:
+                    ad.is_favorite = True
+                    break
+    return advertisements_schema.jsonify(all_advertisement)
 
 
 @app.route('/api/ad/<id>', methods=['GET'])
+@jwt_optional
 def get_advertisement(id):
     advertisement = Advertisement.query.get(id)
-    # TODO
-    # doklejenie informacji o tym czy jest w ulubionych
+    advertisement.is_favorite = False
+    user = get_jwt_identity()
+    if user:
+        current = User.find_by_email(user)
+        favorites = Favorite.query.filter_by(user=current.id)
+        for fav in favorites:
+            if str(fav.ad) == id:
+                advertisement.is_favorite = True
+                break
+
     return advertisement_details_schema.jsonify(advertisement)
 
 
