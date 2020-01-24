@@ -608,10 +608,28 @@ def upload():
     return photos_schema.jsonify(photos)
 
 
+def filter_ads(all_advertisement, category, name, price_max, price_min):
+
+    if category is not None:
+        all_advertisement = list(filter(lambda x: x.category != category, all_advertisement))
+    if price_max is not None:
+        all_advertisement = list(filter(lambda x: x.price < float(price_max), all_advertisement))
+    if price_min is not None:
+        all_advertisement = list(filter(lambda x: x.price > float(price_min), all_advertisement))
+    if name is not None:
+        all_advertisement = list(filter(lambda x: name in x.title, all_advertisement))
+    return all_advertisement
+
+
 @app.route('/api/ad', methods=['GET'])
 @jwt_optional
 def get_advertisements():
+    category = request.args.get('categoryId')
+    name = request.args.get('name')
+    price_max = request.args.get('priceMax')
+    price_min = request.args.get('priceMin')
     all_advertisement = Advertisement.query.all()
+    all_advertisement = filter_ads(all_advertisement, category, name, price_max, price_min)
     user = get_jwt_identity()
     if user:
         current = User.find_by_email(user)
@@ -621,6 +639,7 @@ def get_advertisements():
                 if fav.ad == ad.id:
                     ad.is_favorite = True
                     break
+
     return advertisements_schema.jsonify(all_advertisement)
 
 
