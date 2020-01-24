@@ -807,7 +807,7 @@ def get_categories():
 create_conversation_json_schema = {
     'type': 'object',
     'properties': {
-        'id': {'type': 'id'},
+        'id': {'type': 'number'},
     },
     'required': ['id']
 }
@@ -820,13 +820,19 @@ def create_conversation():
     current = get_jwt_identity()
     try:
         user = User.find_by_email(current)
+        if user.id == request.json["id"]:
+            return {"message": 'You cant create chat with yourself'}
     except FileNotFoundError:
         return {'message': 'No such user'}
     person_b = request.json["id"]
-    conversation = Conversation(user.id, person_b)
+    conversation = Conversation.query.filter(Conversation.person_a == user.id, Conversation.person_b == person_b).first()
+    if not conversation:
+        conversation = Conversation.query.filter(Conversation.person_b == user.id, Conversation.person_a == person_b).first()
 
-    db.session.add(conversation)
-    db.session.commit()
+    if not conversation:
+        conversation = Conversation(user.id, person_b)
+        db.session.add(conversation)
+        db.session.commit()
 
     return conversation_schema.jsonify(conversation)
 
