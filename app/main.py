@@ -641,6 +641,13 @@ def get_advertisement(id):
     return advertisement_details_schema.jsonify(advertisement)
 
 
+@app.route('/api/ad/<id>/photos', methods=['GET'])
+def get_photos_for_advertisement(id):
+    advertisement = Advertisement.query.get(id)
+
+    return photos_schema.jsonify(advertisement.photos)
+
+
 @app.route('/api/ad/<id>', methods=['PUT'])
 @jwt_required
 @is_owner()
@@ -825,9 +832,11 @@ def create_conversation():
     except FileNotFoundError:
         return {'message': 'No such user'}
     person_b = request.json["id"]
-    conversation = Conversation.query.filter(Conversation.person_a == user.id, Conversation.person_b == person_b).first()
+    conversation = Conversation.query.filter(Conversation.person_a == user.id,
+                                             Conversation.person_b == person_b).first()
     if not conversation:
-        conversation = Conversation.query.filter(Conversation.person_b == user.id, Conversation.person_a == person_b).first()
+        conversation = Conversation.query.filter(Conversation.person_b == user.id,
+                                                 Conversation.person_a == person_b).first()
 
     if not conversation:
         conversation = Conversation(user.id, person_b)
