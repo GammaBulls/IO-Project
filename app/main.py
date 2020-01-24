@@ -462,7 +462,7 @@ def login():
     if not user.is_activated:
         return {'message': 'User not activated'}
     if user.verify_password(password):
-        access_token = create_access_token(identity=email)
+        access_token = create_access_token(identity=email, expires_delta=datetime.timedelta(hours=8))
         refresh_token = create_refresh_token(identity=email)
         return {
             'message': 'Logged in as {}'.format(user.email),
