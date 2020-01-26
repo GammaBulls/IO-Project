@@ -1099,8 +1099,8 @@ def init_db():
     for a in userzy:
         db.session.add(a)
 
-    for i in range(1, 5, 1):
-        cat = Category('a' * i)
+    for i in range(7):
+        cat = Category('a' * (i+1))
         db.session.add(cat)
 
     for i in range(15):
