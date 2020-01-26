@@ -1082,13 +1082,9 @@ def init_db():
     for a in userzy:
         db.session.add(a)
 
-    db.session.commit()
-
     for i in range(1, 5, 1):
         cat = Category('a' * i)
         db.session.add(cat)
-
-    db.session.commit()
 
     for i in range(15):
         ad = Advertisement(random.uniform(1.0, 12345.0), randomString(15), random.randint(1, 4), randomString(30),
