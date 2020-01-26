@@ -262,6 +262,16 @@ user_json_schema = {
     'required': ['name', 'email', 'phone', 'showPhone', 'password']
 }
 
+user_update_json_schema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'email': {'type': 'string'},
+        'phone': {'type': 'string'},
+        'showPhone': {'type': 'boolean'},
+    },
+    'required': ['name', 'email', 'phone', 'showPhone']
+}
 
 class UserPublicInfoSchema(ma.Schema):
     class Meta:
@@ -536,7 +546,7 @@ def get_current_user():
 
 @app.route('/api/me', methods=["PUT"])
 @jwt_required
-@expects_json(user_json_schema)
+@expects_json(user_update_json_schema)
 def update_current_user():
     current = get_jwt_identity()
     try:
@@ -556,7 +566,7 @@ def update_current_user():
 @jwt_required
 def delete_current_user():
     current = get_jwt_identity()
-    user = User.find_by_emai7l(current)
+    user = User.find_by_email(current)
     user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
 
     db.session.commit()
