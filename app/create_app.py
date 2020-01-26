@@ -17,7 +17,7 @@ def create_app():
     cors = CORS(app)
     basedir = os.path.abspath(os.path.dirname(__file__))
 
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_UR')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET')
     app.config['SECRET_KEY'] = os.environ.get('JWT_SECRET')
