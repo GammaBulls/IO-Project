@@ -1105,7 +1105,7 @@ def init_db():
 
     for i in range(15):
         ad = Advertisement(random.uniform(1.0, 12345.0), randomString(15), random.randint(1, 4), randomString(30),
-                           userzy[random.randint(0, 2)].id)
+                           random.randint(0, 2))
         db.session.add(ad)
 
     db.session.commit()
