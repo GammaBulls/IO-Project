@@ -273,6 +273,7 @@ user_update_json_schema = {
     'required': ['name', 'email', 'phone', 'showPhone']
 }
 
+
 class UserPublicInfoSchema(ma.Schema):
     class Meta:
         fields = ('name', 'phone_number')
@@ -1067,6 +1068,12 @@ def send_reset_email(email, message):
     return 'Email sent!'
 
 
+def randomString(stringLength=10):
+    """Generate a random string of fixed length """
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(stringLength))
+
+
 def init_db():
     usr = User('a', 'zwykly@io.com', 123, True)
     usr.is_activated = True
@@ -1108,9 +1115,3 @@ if __name__ == '__main__':
     db.create_all()
     init_db()
     app.run(port=os.environ.get('PORT'), host='0.0.0.0')
-
-
-def randomString(stringLength=10):
-    """Generate a random string of fixed length """
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(stringLength))
