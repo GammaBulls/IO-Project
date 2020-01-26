@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from passlib.apps import custom_app_context as pwd_context
@@ -428,7 +428,51 @@ def activate_user(token, email):
     user.is_activated = True
 
     db.session.commit()
-    return user_details_schema.jsonify(user)
+    return redirect(os.environ.get('FRONT') + '/login?success=true', code=301)
+
+
+reset_json_schema = {
+    'type': 'object',
+    'properties': {
+        'email': {'type': 'string'},
+    },
+    'required': ['email']
+}
+
+
+@app.route('/api/reset-password', methods=['POST'])
+@expects_json(reset_json_schema)
+def reset_password():
+    email = request.json['email']
+    try:
+        user = User.find_by_email(email)
+    except FileNotFoundError:
+        return {'message': 'No such user'}
+    token = encode_auth_token(user.id)
+    msg = os.environ.get('FRONT') + 'reset-password?token=' + token
+    send_reset_email(email, msg)
+    return {'message': 'email sent'}
+
+
+password_json_schema = {
+    'type': 'object',
+    'properties': {
+        'password': {'type': 'string'},
+        'token': {'type': 'string'},
+    },
+    'required': ['password', 'token']
+}
+
+
+@app.route('/api/set-new-password', methods=['POST'])
+@expects_json(password_json_schema)
+def set_new_password():
+    token = request.json['token']
+    user_id = decode_auth_token(token)
+    user = User.query.get(user_id)
+    user.hash_password(request['password'])
+    db.session.commit()
+    return user_schema.jsonify(user)
 
 
 login_json_schema = {
@@ -601,7 +645,6 @@ def upload():
 
 
 def filter_ads(all_advertisement, category, name, price_max, price_min):
-
     if category is not None:
         all_advertisement = list(filter(lambda x: x.category != category, all_advertisement))
     if price_max is not None:
@@ -996,7 +1039,16 @@ def delete_category(id):
 
 
 def send_email(email, access_token):
-    msg = Message(subject='Activation', body='{}/api/activate/{}/{}'.format(os.environ.get('LINK'),access_token, email),
+    msg = Message(subject='Activation',
+                  body='{}/api/activate/{}/{}'.format(os.environ.get('LINK'), access_token, email),
+                  sender=os.environ.get('MAIL_USER'), recipients=[email])
+    mail.send(msg)
+    return 'Email sent!'
+
+
+def send_reset_email(email, message):
+    msg = Message(subject='Password reset',
+                  body=message,
                   sender=os.environ.get('MAIL_USER'), recipients=[email])
     mail.send(msg)
     return 'Email sent!'
