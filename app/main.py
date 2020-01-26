@@ -1071,13 +1071,13 @@ def init_db():
     nieaktywny.is_activated = False
     nieaktywny.hash_password('2137')
     admin = User('asdsin', 'admin@io.com', 232221, True)
-    admin.is_activated(True)
+    admin.is_activated = True
     admin.hash_password('2137')
-    admin.is_admin(True)
+    admin.is_admin = True
     mod = User('asdddssin', 'mod@io.com', 211, True)
-    mod.is_activated(True)
+    mod.is_activated = True
     mod.hash_password('2137')
-    mod.is_moderator(True)
+    mod.is_moderator = True
     userzy = tuple(usr, bez_telefon, usrb, nieaktywny, admin, mod)
     for a in userzy:
         db.session.add(a)
