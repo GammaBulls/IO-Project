@@ -1064,7 +1064,7 @@ def init_db():
     bez_telefon = User('ads', 'telefon@io.com', 12345, False)
     bez_telefon.is_activated = True
     bez_telefon.hash_password('2137')
-    usrb = User('a', 'zwykly@io.com', 1233, True)
+    usrb = User('a', 'zwyklyb@io.com', 1233, True)
     usrb.is_activated = True
     usrb.hash_password('2137')
     nieaktywny = User('asds', 'nieaktywny@io.com', 2321, True)
