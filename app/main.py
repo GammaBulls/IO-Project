@@ -1101,12 +1101,17 @@ def init_db():
 
     categories = []
     for i in range(7):
-        cat = Category('a' * (i+1))
+        cat = Category('a' * (i + 1))
         categories.append(cat)
         db.session.add(cat)
 
+    db.session.commit()
+
+
+def init_ads():
     for i in range(15):
-        ad = Advertisement(random.uniform(1.0, 12345.0), randomString(15), categories[random.randint(1, 4)], randomString(30),
+        ad = Advertisement(random.uniform(1.0, 12345.0), randomString(15), random.randint(1, 4),
+                           randomString(30),
                            random.randint(0, 2))
         db.session.add(ad)
 
@@ -1116,4 +1121,5 @@ def init_db():
 if __name__ == '__main__':
     db.create_all()
     init_db()
+    init_ads()
     app.run(port=os.environ.get('PORT'), host='0.0.0.0')
