@@ -1078,7 +1078,7 @@ def init_db():
     mod.is_activated = True
     mod.hash_password('2137')
     mod.is_moderator = True
-    userzy = tuple(usr, bez_telefon, usrb, nieaktywny, admin, mod)
+    userzy = (usr, bez_telefon, usrb, nieaktywny, admin, mod)
     for a in userzy:
         db.session.add(a)
 
