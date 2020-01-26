@@ -599,7 +599,9 @@ def get_favorite_ads():
     favorites = Favorite.query.filter_by(user=user.id)
     ads = []
     for favorite in favorites:
-        ads.append(Advertisement.query.get(favorite.ad))
+        ad = Advertisement.query.get(favorite.ad)
+        ad.is_favorite = True
+        ads.append(ad)
 
     return advertisements_schema.jsonify(ads)
 
@@ -613,6 +615,12 @@ def get_my_ads():
     except FileNotFoundError:
         return {'message': 'No such user'}
     my_ads = Advertisement.query.filter_by(owner=user.id)
+    favorites = Favorite.query.filter_by(user=user.id)
+    for ad in my_ads:
+        for fav in favorites:
+            if fav.ad == ad.id:
+                ad.is_favorite = True
+                break
 
     return advertisements_schema.jsonify(my_ads)
 
