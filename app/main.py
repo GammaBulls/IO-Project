@@ -617,6 +617,9 @@ def get_my_ads():
     my_ads = Advertisement.query.filter_by(owner=user.id)
     favorites = Favorite.query.filter_by(user=user.id)
     for ad in my_ads:
+        if ad.end_date:
+            my_ads.remove(ad)
+    for ad in my_ads:
         for fav in favorites:
             if fav.ad == ad.id:
                 ad.is_favorite = True
