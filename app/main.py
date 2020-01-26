@@ -659,8 +659,11 @@ def upload():
 
 
 def filter_ads(all_advertisement, category, name, price_max, price_min):
+    for ad in all_advertisement:
+        print (ad.category)
+
     if category is not None:
-        all_advertisement = list(filter(lambda x: x.category != category, all_advertisement))
+        all_advertisement = list(filter(lambda x: x.category == category, all_advertisement))
     if price_max is not None:
         all_advertisement = list(filter(lambda x: x.price < float(price_max), all_advertisement))
     if price_min is not None:
