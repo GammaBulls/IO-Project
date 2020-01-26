@@ -771,8 +771,11 @@ delete_ad_json_schema = {
 def delete_advertisement(id):
     advertisement = Advertisement.query.get(id)
     advertisement.end_date = datetime.datetime.now()
-    advertisement.end_reason = request.json["reason"]
-
+    end = request.json['reason']
+    if end.lower() == 'sold':
+        advertisement.end_reason = EndReason.SOLD
+    if end.lower() == 'not sold':
+        advertisement.end_reason = EndReason.NOT_SOLD
     db.session.commit()
 
 
