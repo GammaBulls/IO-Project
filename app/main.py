@@ -659,6 +659,9 @@ def upload():
 
 
 def filter_ads(all_advertisement, category, name, price_max, price_min):
+    if category is not None:
+        print(category)
+    print('kategorie')
     for ad in all_advertisement:
         print (ad.category)
 
