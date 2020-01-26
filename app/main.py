@@ -15,20 +15,12 @@ import enum
 import datetime
 import jwt
 import requests
+import create_app
 
-app = Flask(__name__)
+app = create_app.create_app()
 cors = CORS(app)
 basedir = os.path.abspath(os.path.dirname(__file__))
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.sqlite')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = 'jwt-secret-string'
-app.config['SECRET_KEY'] = 'jwt-secret-string'
-app.config['MAIL_SERVER'] = 'mail.cock.li'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_SSL'] = True
-app.config['MAIL_USERNAME'] = 'ogloszenioofka@goat.si'
-app.config['MAIL_PASSWORD'] = 'MyciekTop'
 jwtmgr = JWTManager(app)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
@@ -139,7 +131,7 @@ class Advertisement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(80), nullable=False)
     description = db.Column(db.String(500), nullable=False)
-    price = db.Column(db.Float(precision='5,2'))
+    price = db.Column(db.Float())
     is_promoted = db.Column(db.Boolean(), nullable=False)
     photos = db.relationship('Photo', backref='owner')
     category = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
@@ -1004,12 +996,12 @@ def delete_category(id):
 
 
 def send_email(email, access_token):
-    msg = Message(subject='Activation', body='localhost:8000/api/activate/{}/{}'.format(access_token, email),
-                  sender='ogloszenioofka@goat.si', recipients=[email])
+    msg = Message(subject='Activation', body='{}/api/activate/{}/{}'.format(os.environ.get('LINK'),access_token, email),
+                  sender=os.environ.get('MAIL_USER'), recipients=[email])
     mail.send(msg)
     return 'Email sent!'
 
 
 if __name__ == '__main__':
     db.create_all()
-    app.run(port=8000, debug=True, host='0.0.0.0')
+    app.run(port=os.environ.get('PORT'), host='0.0.0.0')
