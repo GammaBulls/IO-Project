@@ -658,24 +658,23 @@ def upload():
     return photos_schema.jsonify(photos)
 
 
+def remove_from_list(all_ads, category):
+    all_advertisement = list()
+    for ad in all_ads:
+        if ad.category == category:
+            all_advertisement.append(ad)
+    return all_advertisement
+
+
 def filter_ads(all_advertisement, category, name, price_max, price_min):
     if category is not None:
-        print(category)
-    print('kategorie')
-    for ad in all_advertisement:
-        print(ad.category)
-
-    if category is not None:
-        all_advertisement = list(filter(lambda x: x.category != category, all_advertisement))
+        all_advertisement = remove_from_list(all_advertisement, category)
     if price_max is not None:
         all_advertisement = list(filter(lambda x: x.price < float(price_max), all_advertisement))
     if price_min is not None:
         all_advertisement = list(filter(lambda x: x.price > float(price_min), all_advertisement))
     if name is not None:
         all_advertisement = list(filter(lambda x: name.lower() in x.title.lower(), all_advertisement))
-    print('drugi raz')
-    for ad in all_advertisement:
-        print(ad.category)
 
     return all_advertisement
 
