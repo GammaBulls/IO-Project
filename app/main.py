@@ -1085,7 +1085,7 @@ def init_db():
     db.session.commit()
 
     for i in range(1, 5, 1):
-        cat = Category('a' * 1)
+        cat = Category('a' * i)
         db.session.add(cat)
 
     db.session.commit()
