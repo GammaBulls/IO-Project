@@ -614,7 +614,7 @@ def get_my_ads():
         user = User.find_by_email(current)
     except FileNotFoundError:
         return {'message': 'No such user'}
-    my_ads = Advertisement.query.filter_by(owner=user.id)
+    my_ads = list(Advertisement.query.filter_by(owner=user.id))
     favorites = Favorite.query.filter_by(user=user.id)
     for ad in my_ads:
         if ad.end_date:
