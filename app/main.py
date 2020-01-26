@@ -584,7 +584,7 @@ def cancel_delete():
     except FileNotFoundError:
         return {'message': 'No such user'}
     user.delete_date = None
-
+    db.session.commit()
     return user_details_schema.jsonify(user)
 
 
@@ -1083,7 +1083,7 @@ def init_db():
     bez_telefon.hash_password('2137')
     usrb = User('a', 'zwyklyb@io.com', 1233, True)
     usrb.is_activated = True
-    usrb.hash_password('2137')
+    usrb.hash_password('2137')§1
     nieaktywny = User('asds', 'nieaktywny@io.com', 2321, True)
     nieaktywny.is_activated = False
     nieaktywny.hash_password('2137')
