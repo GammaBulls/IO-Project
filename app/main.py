@@ -663,16 +663,20 @@ def filter_ads(all_advertisement, category, name, price_max, price_min):
         print(category)
     print('kategorie')
     for ad in all_advertisement:
-        print (ad.category)
+        print(ad.category)
 
     if category is not None:
-        all_advertisement = list(filter(lambda x: x.category == category, all_advertisement))
+        all_advertisement = list(filter(lambda x: x.category != category, all_advertisement))
     if price_max is not None:
         all_advertisement = list(filter(lambda x: x.price < float(price_max), all_advertisement))
     if price_min is not None:
         all_advertisement = list(filter(lambda x: x.price > float(price_min), all_advertisement))
     if name is not None:
         all_advertisement = list(filter(lambda x: name.lower() in x.title.lower(), all_advertisement))
+    print('drugi raz')
+    for ad in all_advertisement:
+        print(ad.category)
+
     return all_advertisement
 
 
