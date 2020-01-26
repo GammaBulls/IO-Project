@@ -777,6 +777,7 @@ def delete_advertisement(id):
     if end.lower() == 'not sold':
         advertisement.end_reason = 2
     db.session.commit()
+    return {'Message': 'Deleted'}
 
 
 @app.route('/api/ad/<id>/extend', methods=['POST'])
