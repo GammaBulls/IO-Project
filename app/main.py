@@ -669,7 +669,7 @@ def upload():
 def remove_from_list(all_ads, category):
     all_advertisement = list()
     for ad in all_ads:
-        if ad.category == category:
+        if str(ad.category) == category:
             all_advertisement.append(ad)
     return all_advertisement
 
