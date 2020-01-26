@@ -617,9 +617,6 @@ def get_my_ads():
     my_ads = list(Advertisement.query.filter_by(owner=user.id))
     favorites = Favorite.query.filter_by(user=user.id)
     for ad in my_ads:
-        if ad.end_date:
-            my_ads.remove(ad)
-    for ad in my_ads:
         for fav in favorites:
             if fav.ad == ad.id:
                 ad.is_favorite = True
@@ -697,7 +694,10 @@ def get_advertisements():
     name = request.args.get('name')
     price_max = request.args.get('priceMax')
     price_min = request.args.get('priceMin')
-    all_advertisement = Advertisement.query.all()
+    all_advertisement = list(Advertisement.query.all())
+    for ad in all_advertisement:
+        if ad.end_date:
+            all_advertisement.remove(ad)
     all_advertisement = filter_ads(all_advertisement, category, name, price_max, price_min)
     user = get_jwt_identity()
     if user:
