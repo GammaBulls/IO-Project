@@ -773,9 +773,9 @@ def delete_advertisement(id):
     advertisement.end_date = datetime.datetime.now()
     end = request.json['reason']
     if end.lower() == 'sold':
-        advertisement.end_reason = EndReason.SOLD
+        advertisement.end_reason = 1
     if end.lower() == 'not sold':
-        advertisement.end_reason = EndReason.NOT_SOLD
+        advertisement.end_reason = 2
     db.session.commit()
 
 
