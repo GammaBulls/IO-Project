@@ -1,3 +1,5 @@
+import string
+
 from flask import Flask, request, jsonify, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
@@ -16,6 +18,7 @@ import datetime
 import jwt
 import requests
 import create_app
+import random
 
 app = create_app.create_app()
 cors = CORS(app)
@@ -652,7 +655,7 @@ def filter_ads(all_advertisement, category, name, price_max, price_min):
     if price_min is not None:
         all_advertisement = list(filter(lambda x: x.price > float(price_min), all_advertisement))
     if name is not None:
-        all_advertisement = list(filter(lambda x: name in x.title, all_advertisement))
+        all_advertisement = list(filter(lambda x: name.lower() in x.title.lower(), all_advertisement))
     return all_advertisement
 
 
@@ -1054,6 +1057,54 @@ def send_reset_email(email, message):
     return 'Email sent!'
 
 
+def init_db():
+    usr = User('a', 'zwykly@io.com', 123, True)
+    usr.is_activated = True
+    usr.hash_password('2137')
+    bez_telefon = User('ads', 'telefon@io.com', 12345, False)
+    bez_telefon.is_activated = True
+    bez_telefon.hash_password('2137')
+    usrb = User('a', 'zwykly@io.com', 1233, True)
+    usrb.is_activated = True
+    usrb.hash_password('2137')
+    nieaktywny = User('asds', 'nieaktywny@io.com', 2321, True)
+    nieaktywny.is_activated = False
+    nieaktywny.hash_password('2137')
+    admin = User('asdsin', 'admin@io.com', 232221, True)
+    admin.is_activated(True)
+    admin.hash_password('2137')
+    admin.is_admin(True)
+    mod = User('asdddssin', 'mod@io.com', 211, True)
+    mod.is_activated(True)
+    mod.hash_password('2137')
+    mod.is_moderator(True)
+    userzy = tuple(usr, bez_telefon, usrb, nieaktywny, admin, mod)
+    for a in userzy:
+        db.session.add(a)
+
+    db.session.commit()
+
+    for i in range(1, 5, 1):
+        cat = Category('a' * 1)
+        db.session.add(cat)
+
+    db.session.commit()
+
+    for i in range(15):
+        ad = Advertisement(random.uniform(1.0, 12345.0), randomString(15), random.randint(1, 4), randomString(30),
+                           userzy[random.randint(0, 2)])
+        db.session.add(ad)
+
+    db.session.commit()
+
+
 if __name__ == '__main__':
     db.create_all()
+    init_db()
     app.run(port=os.environ.get('PORT'), host='0.0.0.0')
+
+
+def randomString(stringLength=10):
+    """Generate a random string of fixed length """
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(stringLength))
