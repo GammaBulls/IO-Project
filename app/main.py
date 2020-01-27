@@ -183,7 +183,7 @@ advertisement_json_schema = {
         'description': {'type': 'string'},
         'photos': {'type': 'array'},
     },
-    'required': ['price', 'title', 'categoryId', 'description', 'photos']
+
 }
 
 
