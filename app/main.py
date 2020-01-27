@@ -850,7 +850,7 @@ def create_report(id):
     db.session.add(new_report)
     db.session.commit()
 
-    return ReportSchema.jsonify(new_report)
+    return report_schema.jsonify(new_report)
 
 
 @app.route('/api/mod/reports', methods=['GET'])
