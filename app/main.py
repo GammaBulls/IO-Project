@@ -484,6 +484,7 @@ def set_new_password():
     token = request.json['token']
     user_id = decode_auth_token(token)
     user = User.query.get(user_id)
+    user.password_hash = ''
     user.hash_password(request['password'])
     db.session.commit()
     return user_schema.jsonify(user)
@@ -895,6 +896,7 @@ def review_report(id):
 
     db.session.commit()
     return user_details_schema.jsonify(user)
+
 
 @app.route("/api/mod/ban/<id>", methods=['POST'])
 @jwt_required
