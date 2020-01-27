@@ -882,8 +882,9 @@ def review_report(id):
     ban_user = request.json["banUser"]
     report = Report.query.get(id)
 
+    advertisement = get_advertisement(report.advertisement)
+
     if ban_user:
-        advertisement = get_advertisement(report.advertisement)
         user = User.query.get(advertisement.owner)
         user_ads = Advertisement.query.filter_by(owner=user.id)
         for ad in user_ads:
@@ -892,7 +893,7 @@ def review_report(id):
         user.delete_date = datetime.datetime.now()
 
     if not is_ok:
-        ad.end_date = datetime.datetime.now()
+        advertisement.end_date = datetime.datetime.now()
 
     db.session.commit()
     return user_details_schema.jsonify(user)
