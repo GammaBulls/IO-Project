@@ -878,7 +878,7 @@ review_json_schema = {
 @require_permissions("mod")
 @expects_json(review_json_schema)
 def review_report(id):
-    is_ok = request.json["isOk"]
+    is_ok = request.json["is_ok"]
     ban_user = request.json["banUser"]
     report = Report.query.get(id)
 
