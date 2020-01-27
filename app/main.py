@@ -743,14 +743,14 @@ def get_photos_for_advertisement(id):
 @expects_json(advertisement_json_schema)
 def update_advertisement(id):
     advertisement = Advertisement.query.get(id)
-    advertisement.price = request.json['price']
-    advertisement.title = request.json['title']
-    advertisement.category = request.json['categoryId']
-    photos = request.json['photos']
-    for id in photos:
-        photo = Photo.query.get(id)
-        photo.owner = advertisement
-    advertisement.description = request.json['description']
+    if request.json['price']:
+        advertisement.price = request.json['price']
+    if request.json['title']:
+        advertisement.title = request.json['title']
+    if request.json['categoryId']:
+        advertisement.category = request.json['categoryId']
+    if request.json['description']:
+        advertisement.description = request.json['description']
 
     db.session.commit()
     return advertisement_schema.jsonify(advertisement)
