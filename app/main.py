@@ -894,7 +894,7 @@ def review_report(id):
         db.session.delete(id)
 
     db.session.commit()
-
+    return user_details_schema.jsonify(user)
 
 @app.route("/api/mod/ban/<id>", methods=['POST'])
 @jwt_required
