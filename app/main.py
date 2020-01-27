@@ -884,7 +884,7 @@ def review_report(id):
     if ban_user:
         advertisement = get_advertisement(report.advertisement)
         user = User.query.get(advertisement.owner)
-        user_ads = Advertisement.query.filer(owner=user.id)
+        user_ads = Advertisement.query.filter_by(owner=user.id)
         for ad in user_ads:
             ad.end_date = datetime.datetime.now()
             ad.end_reason = 2
