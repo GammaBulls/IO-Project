@@ -845,7 +845,6 @@ def create_report(id):
         new_report = Report(1, id)
     else:
         new_report = Report(2, id)
-    new_report = Report(report_reason, id)
 
     db.session.add(new_report)
     db.session.commit()
