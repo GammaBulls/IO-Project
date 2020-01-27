@@ -896,7 +896,7 @@ def review_report(id):
         advertisement.end_date = datetime.datetime.now()
 
     db.session.commit()
-    return user_details_schema.jsonify(user)
+    return user_details_schema.jsonify(advertisement)
 
 
 @app.route("/api/mod/ban/<id>", methods=['POST'])
