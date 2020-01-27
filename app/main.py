@@ -1079,9 +1079,10 @@ def delete_category(id):
     category = Category.query.get(id)
     try:
         db.session.delete(category)
+        db.session.commit()
     except:
         return {'message': 'cannot delete this category'}
-    db.session.commit()
+
     return category_schema.jsonify(category)
 
 
