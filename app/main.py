@@ -892,7 +892,7 @@ def review_report(id):
             ad.end_reason = 2
         user.delete_date = datetime.datetime.now()
 
-    if not is_ok:
+    if is_ok is False:
         advertisement.end_date = datetime.datetime.now()
 
     db.session.commit()
