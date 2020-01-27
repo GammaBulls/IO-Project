@@ -891,8 +891,8 @@ def review_report(id):
             ad.end_reason = 2
         user.delete_date = datetime.datetime.now()
 
-    if is_ok:
-        db.session.delete(id)
+    if not is_ok:
+        ad.end_date = datetime.datetime.now()
 
     db.session.commit()
     return user_details_schema.jsonify(user)
