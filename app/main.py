@@ -841,6 +841,10 @@ def delete_ad_from_favorite(id):
 @expects_json(report_json_schema)
 def create_report(id):
     report_reason = request.json['reason']
+    if report_reason == "scam":
+        new_report = Report(1, id)
+    else:
+        new_report = Report(2, id)
     new_report = Report(report_reason, id)
 
     db.session.add(new_report)
