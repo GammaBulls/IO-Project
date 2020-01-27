@@ -1077,7 +1077,10 @@ def create_category():
 @require_permissions("admin")
 def delete_category(id):
     category = Category.query.get(id)
-    db.session.delete(category)
+    try:
+        db.session.delete(category)
+    except:
+        return {'message': 'cannot delete this category'}
     db.session.commit()
     return category_schema.jsonify(category)
 
