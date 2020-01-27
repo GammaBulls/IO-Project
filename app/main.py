@@ -695,21 +695,22 @@ def get_advertisements():
     price_max = request.args.get('priceMax')
     price_min = request.args.get('priceMin')
     all_advertisement = list(Advertisement.query.all())
+    ads_without_to_delete = list()
     for ad in all_advertisement:
-        if ad.end_date:
-            all_advertisement.remove(ad)
-    all_advertisement = filter_ads(all_advertisement, category, name, price_max, price_min)
+        if ad.end_date is None:
+            ads_without_to_delete.append(ad)
+    ads_without_to_delete = filter_ads(ads_without_to_delete, category, name, price_max, price_min)
     user = get_jwt_identity()
     if user:
         current = User.find_by_email(user)
         favorites = Favorite.query.filter_by(user=current.id)
-        for ad in all_advertisement:
+        for ad in ads_without_to_delete:
             for fav in favorites:
                 if fav.ad == ad.id:
                     ad.is_favorite = True
                     break
 
-    return advertisements_schema.jsonify(all_advertisement)
+    return advertisements_schema.jsonify(ads_without_to_delete)
 
 
 @app.route('/api/ad/<id>', methods=['GET'])
