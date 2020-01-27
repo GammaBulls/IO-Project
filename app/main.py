@@ -902,8 +902,14 @@ def review_report(id):
 def ban_user(id):
     user = User.query.get(id)
     user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
+    user_ads = Advertisement.query.filer(owner=user.id)
+    for ad in user_ads:
+        ad.end_date = datetime.datetime.time()
+        ad.end_reason = 2
+    user.delete_date = datetime.datetime.now()
 
     db.session.commit()
+    return user_details_schema.jsonify(user)
 
 
 @app.route('/api/categories', methods=['GET'])
