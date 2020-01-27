@@ -902,7 +902,7 @@ def review_report(id):
 def ban_user(id):
     user = User.query.get(id)
     user.delete_date = datetime.datetime.now() + datetime.timedelta(days=7)
-    user_ads = Advertisement.query.filer(owner=user.id)
+    user_ads = Advertisement.query.filter(owner=user.id)
     for ad in user_ads:
         ad.end_date = datetime.datetime.now()
         ad.end_reason = 2
